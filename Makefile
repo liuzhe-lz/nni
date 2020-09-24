@@ -70,12 +70,12 @@ NNI_VERSION_TEMPLATE = 999.0.0-developing
 .PHONY: build
 build:
 	#$(_INFO) Building NNI Manager $(_END)
-	cd src/nni_manager && $(NNI_YARN) && $(NNI_YARN) build
-	cp -rf src/nni_manager/config src/nni_manager/dist/
+	cd ts/nni_manager && $(NNI_YARN) && $(NNI_YARN) build
+	cp -rf ts/nni_manager/config ts/nni_manager/dist/
 	#$(_INFO) Building WebUI $(_END)
-	cd src/webui && $(NNI_YARN) && $(NNI_YARN) build
+	cd ts/webui && $(NNI_YARN) && $(NNI_YARN) build
 	#$(_INFO) Building NAS UI $(_END)
-	cd src/nasui && $(NNI_YARN) && $(NNI_YARN) build
+	cd ts/nasui && $(NNI_YARN) && $(NNI_YARN) build
 
 # All-in-one target for non-expert users
 # Installs NNI as well as its dependencies, and update bashrc to set PATH
@@ -119,8 +119,7 @@ dev-install:
 
 .PHONY: uninstall
 uninstall:
-	-cd build && $(PIP_UNINSTALL) -y nni
-	-rm -rf build
+	-$(PIP_UNINSTALL) -y nni
 	-rm -rf $(NNI_PKG_FOLDER)
 	-rm -f $(BIN_FOLDER)/node
 	-rm -f $(BIN_FOLDER)/nnictl
@@ -128,16 +127,13 @@ uninstall:
 
 .PHONY: clean
 clean:
-	-rm -rf tools/build
-	-rm -rf tools/nnictl.egg-info
-	-rm -rf src/nni_manager/dist
-	-rm -rf src/nni_manager/node_modules
-	-rm -rf src/sdk/pynni/build
-	-rm -rf src/sdk/pynni/nni_sdk.egg-info
-	-rm -rf src/webui/build
-	-rm -rf src/webui/node_modules
-	-rm -rf src/nasui/build
-	-rm -rf src/nasui/node_modules
+	-rm -rf ts/nni_manager/dist
+	-rm -rf ts/nni_manager/node_modules
+	-rm -rf ts/webui/build
+	-rm -rf ts/webui/node_modules
+	-rm -rf ts/nasui/build
+	-rm -rf ts/nasui/node_modules
+	-rm -rf nni.egg-info
 
 # Main targets end
 
@@ -170,58 +166,43 @@ install-dependencies: $(NNI_NODE_TARBALL) $(NNI_YARN_TARBALL)
 .PHONY: install-python-modules
 install-python-modules:
 	#$(_INFO) Installing Python SDK $(_END)
-	sed -ie 's/$(NNI_VERSION_TEMPLATE)/$(NNI_VERSION_VALUE)/' src/sdk/pynni/nni/__init__.py
 	sed -ie 's/$(NNI_VERSION_TEMPLATE)/$(NNI_VERSION_VALUE)/' setup.py && $(PIP_INSTALL) $(PIP_MODE) .
 
 .PHONY: dev-install-python-modules
 dev-install-python-modules:
 	#$(_INFO) Installing Python SDK $(_END)
-	mkdir -p build
-	ln -sfT ../src/sdk/pynni/nni build/nni
-	ln -sfT ../src/sdk/pycli/nnicli build/nnicli
-	ln -sfT ../tools/nni_annotation build/nni_annotation
-	ln -sfT ../tools/nni_cmd build/nni_cmd
-	ln -sfT ../tools/nni_trial_tool build/nni_trial_tool
-	ln -sfT ../tools/nni_gpu_tool build/nni_gpu_tool
-	cp setup.py build/
-	cp README.md build/
-	sed -ie 's/$(NNI_VERSION_TEMPLATE)/$(NNI_VERSION_VALUE)/' build/setup.py
-	sed -ie 's/src\/sdk\/pynni\/nni/nni/g' build/setup.py
-	sed -ie 's/tools\///g' build/setup.py
-	cd build && $(PIP_INSTALL) $(PIP_MODE) -e .
+	$(PIP_INSTALL) $(PIP_MODE) -e .
 
 
 .PHONY: install-node-modules
 install-node-modules:
 	#$(_INFO) Installing NNI Package $(_END)
 	rm -rf $(NNI_PKG_FOLDER)
-	cp -r src/nni_manager/dist $(NNI_PKG_FOLDER)
-	cp src/nni_manager/package.json $(NNI_PKG_FOLDER)
+	cp -r ts/nni_manager/dist $(NNI_PKG_FOLDER)
+	cp ts/nni_manager/package.json $(NNI_PKG_FOLDER)
 	sed -ie 's/$(NNI_VERSION_TEMPLATE)/$(NNI_VERSION_VALUE)/' $(NNI_PKG_FOLDER)/package.json
 	$(NNI_YARN) --prod --cwd $(NNI_PKG_FOLDER)
-	cp -r src/webui/build $(NNI_PKG_FOLDER)/static
+	cp -r ts/webui/build $(NNI_PKG_FOLDER)/static
 	# Install nasui
 	mkdir -p $(NASUI_PKG_FOLDER)
-	cp -rf src/nasui/build $(NASUI_PKG_FOLDER)
-	cp src/nasui/server.js $(NASUI_PKG_FOLDER)
+	cp -rf ts/nasui/build $(NASUI_PKG_FOLDER)
+	cp ts/nasui/server.js $(NASUI_PKG_FOLDER)
 
 
 .PHONY: dev-install-node-modules
 dev-install-node-modules:
 	#$(_INFO) Installing NNI Package $(_END)
-	ln -sfT ${PWD}/src/nni_manager/dist $(NNI_PKG_FOLDER)
-	cp src/nni_manager/package.json $(NNI_PKG_FOLDER)
+	ln -sfT ${PWD}/ts/nni_manager/dist $(NNI_PKG_FOLDER)
+	cp ts/nni_manager/package.json $(NNI_PKG_FOLDER)
 	sed -ie 's/$(NNI_VERSION_TEMPLATE)/$(NNI_VERSION_VALUE)/' $(NNI_PKG_FOLDER)/package.json
-	ln -sfT ${PWD}/src/nni_manager/node_modules $(NNI_PKG_FOLDER)/node_modules
-	ln -sfT ${PWD}/src/webui/build $(NNI_PKG_FOLDER)/static
+	ln -sfT ${PWD}/ts/nni_manager/node_modules $(NNI_PKG_FOLDER)/node_modules
+	ln -sfT ${PWD}/ts/webui/build $(NNI_PKG_FOLDER)/static
 	mkdir -p $(NASUI_PKG_FOLDER)
-	ln -sfT ${PWD}/src/nasui/build $(NASUI_PKG_FOLDER)/build
-	ln -sfT ${PWD}/src/nasui/server.js $(NASUI_PKG_FOLDER)/server.js
+	ln -sfT ${PWD}/ts/nasui/build $(NASUI_PKG_FOLDER)/build
+	ln -sfT ${PWD}/ts/nasui/server.js $(NASUI_PKG_FOLDER)/server.js
 
 .PHONY: install-scripts
-install-scripts:
-	mkdir -p $(BASH_COMP_PREFIX)
-	install -m644 tools/bash-completion $(BASH_COMP_SCRIPT)
+install-scripts: ;
 
 .PHONY: update-bash-config
 ifndef _ROOT

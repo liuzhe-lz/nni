@@ -65,9 +65,7 @@ typings/
 
 # Python cache files
 __pycache__
-build
-*.egg-info
-setup.pye
+nni.egg-info
 
 # Environments
 .env
