@@ -9,7 +9,7 @@ import random
 import time
 import tempfile
 from subprocess import Popen, check_call, CalledProcessError, PIPE, STDOUT
-from nni_annotation import expand_annotations, generate_search_space
+from nni.nni_annotation import expand_annotations, generate_search_space
 from nni.package_utils import get_builtin_module_class_name, get_nni_installation_path
 from .launcher_utils import validate_all_content
 from .rest_utils import rest_put, rest_post, check_rest_server, check_response

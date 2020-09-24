@@ -17,20 +17,12 @@ setup(
     license = 'MIT',
     url = 'https://github.com/Microsoft/nni',
 
-    packages = find_packages('src/sdk/pynni', exclude=['tests']) + find_packages('src/sdk/pycli') + find_packages('tools'),
-    package_dir = {
-        'nni': 'src/sdk/pynni/nni',
-        'nnicli': 'src/sdk/pycli/nnicli',
-        'nni_annotation': 'tools/nni_annotation',
-        'nni_cmd': 'tools/nni_cmd',
-        'nni_trial_tool':'tools/nni_trial_tool',
-        'nni_gpu_tool':'tools/nni_gpu_tool'
-    },
-    package_data = {'nni': ['**/requirements.txt']},
+    packages = find_packages(include=['nni', 'nni.*']),
     python_requires = '>=3.6',
     install_requires = [
         'astor',
-        'hyperopt==0.1.2',
+        #'hyperopt==0.1.2',
+        'hyperopt',
         'json_tricks',
         'netifaces',
         'numpy',
@@ -39,7 +31,7 @@ setup(
         'requests',
         'scipy',
         'schema',
-        'PythonWebHDFS',
+        #'PythonWebHDFS',
         'colorama',
         'scikit-learn>=0.23.2',
         'pkginfo',
@@ -48,7 +40,7 @@ setup(
 
     entry_points = {
         'console_scripts' : [
-            'nnictl = nni_cmd.nnictl:parse_args'
+            'nnictl = nni.nni_cmd.nnictl:parse_args'
         ]
     }
 )
