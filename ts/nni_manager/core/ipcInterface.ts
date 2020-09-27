@@ -62,10 +62,10 @@ class IpcInterface {
      * @param proc the process to wrap
      * @param acceptCommandTypes set of accepted commands for this process
      */
-    constructor(proc: ChildProcess, acceptCommandTypes: Set<string>) {
+    constructor(outStream: Writable, inStream: Readable, acceptCommandTypes: Set<string>) {
         this.acceptCommandTypes = acceptCommandTypes;
-        this.outgoingStream = <Writable>proc.stdio[ipcOutgoingFd];
-        this.incomingStream = <Readable>proc.stdio[ipcIncomingFd];
+        this.outgoingStream = outStream;
+        this.incomingStream = inStream;
         this.eventEmitter = new EventEmitter();
         this.readBuffer = Buffer.alloc(0);
 
@@ -132,7 +132,15 @@ class IpcInterface {
  * @param process_ the tuner process
  */
 function createDispatcherInterface(process: ChildProcess): IpcInterface {
-    return new IpcInterface(process, new Set([...CommandType.TUNER_COMMANDS, ...CommandType.ASSESSOR_COMMANDS]));
+    const outStream = <Writable>process.stdio[ipcOutgoingFd];
+    const inStream = <Readable>process.stdio[ipcIncomingFd];
+    return new IpcInterface(outStream, inStream, new Set([...CommandType.TUNER_COMMANDS, ...CommandType.ASSESSOR_COMMANDS]));
+}
+
+function createDispatcherPipeInterface(pipePath: string): IpcInterface {
+    // LZ TODO : connect pipe here
+    const client = net.createConnection(pipePath);
+    return new IpcInterface(client, client, pipePath, new Set([...CommandType.TUNER_COMMANDS, ...CommandType.ASSESSOR_COMMANDS]));
 }
 
 export { IpcInterface, createDispatcherInterface, encodeCommand, decodeCommand };

@@ -17,9 +17,10 @@ class ExperimentStartupInfo {
     private logDir: string = '';
     private logLevel: string = '';
     private readonly: boolean = false;
+    private dispatcherPipe?: string = null;
     private platform: string = '';
 
-    public setStartupInfo(newExperiment: boolean, experimentId: string, basePort: number, platform: string, logDir?: string, logLevel?: string, readonly?: boolean): void {
+    public setStartupInfo(newExperiment: boolean, experimentId: string, basePort: number, platform: string, logDir?: string, logLevel?: string, readonly?: boolean, dispatcherPipe?: string): void {
         assert(!this.initialized);
         assert(experimentId.trim().length > 0);
         this.newExperiment = newExperiment;
@@ -40,6 +41,10 @@ class ExperimentStartupInfo {
 
         if (readonly !== undefined) {
             this.readonly = readonly;
+        }
+
+        if (dispatcherPipe !== undefined and dispatcherPipe.length > 0) {
+            this.dispatcherPipe = dispatcherPipe;
         }
     }
 
@@ -84,6 +89,11 @@ class ExperimentStartupInfo {
 
         return this.readonly;
     }
+
+    public getDispatcherPipe(): string? {
+        assert(this.initialized);
+        return this.dispatcherPipe;
+    }
 }
 
 function getExperimentId(): string {
@@ -107,13 +117,17 @@ function getExperimentStartupInfo(): ExperimentStartupInfo {
 }
 
 function setExperimentStartupInfo(
-    newExperiment: boolean, experimentId: string, basePort: number, platform: string, logDir?: string, logLevel?: string, readonly?: boolean): void {
+    newExperiment: boolean, experimentId: string, basePort: number, platform: string, logDir?: string, logLevel?: string, readonly?: boolean, dispatcherPipe?: string): void {
     component.get<ExperimentStartupInfo>(ExperimentStartupInfo)
-        .setStartupInfo(newExperiment, experimentId, basePort, platform, logDir, logLevel, readonly);
+        .setStartupInfo(newExperiment, experimentId, basePort, platform, logDir, logLevel, readonly, dispatcherPipe);
 }
 
 function isReadonly(): boolean {
     return component.get<ExperimentStartupInfo>(ExperimentStartupInfo).isReadonly();
+}
+
+function getDispatcherPipe(): string? {
+    return component.get<ExperimentStartupInfo>(ExperimentStartupInfo).getDispatcherPipe();
 }
 
 export {
