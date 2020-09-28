@@ -6,6 +6,7 @@
 import * as assert from 'assert';
 import { ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import * as net from 'net';
 import { Readable, Writable } from 'stream';
 import { NNIError } from '../common/errors';
 import { getLogger, Logger } from '../common/log';
@@ -138,9 +139,8 @@ function createDispatcherInterface(process: ChildProcess): IpcInterface {
 }
 
 function createDispatcherPipeInterface(pipePath: string): IpcInterface {
-    // LZ TODO : connect pipe here
     const client = net.createConnection(pipePath);
-    return new IpcInterface(client, client, pipePath, new Set([...CommandType.TUNER_COMMANDS, ...CommandType.ASSESSOR_COMMANDS]));
+    return new IpcInterface(client, client, new Set([...CommandType.TUNER_COMMANDS, ...CommandType.ASSESSOR_COMMANDS]));
 }
 
-export { IpcInterface, createDispatcherInterface, encodeCommand, decodeCommand };
+export { IpcInterface, createDispatcherInterface, createDispatcherPipeInterface, encodeCommand, decodeCommand };

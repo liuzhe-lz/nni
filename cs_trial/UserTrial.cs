@@ -1,13 +1,14 @@
-﻿using System.Text.Json;
+﻿using System;
 using System.Threading;
 
 namespace NaiveExample {
     class NaiveTrial : Nni.ITrial
     {
-        public double Run(JsonElement parameters)
+        public double Run(string parameter)
         {
+            double x = Double.Parse(parameter);
             Thread.Sleep(1000);
-            return 2.34;
+            return x * 2;
         }
     }
 }

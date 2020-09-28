@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Pipes;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -13,21 +14,18 @@ namespace Nni
 {
     class Experiment
     {
-        // FIXME: hard-coded installation information
-        public string NodePath = "node";
-        public string NniManagerPath = "/home/lz/.local/nni";
-        public string TrialDir = "/home/lz/code/nni/cs_trial";
-        public string TrialCommand = "./bin/Debug/netcoreapp3.1/cs_trial --trial ";
-
         public Experiment(string trialClassName, string tunerName, string searchSpace)
         {
-            _trialClassName = trialClassName;
-            _tunerName = tunerName;
-            _searchSpace = searchSpace;
+            this.trialClassName = trialClassName;
+            this.tunerName = tunerName;
+            this.searchSpace = searchSpace;
+
+            Debug.Assert(tunerName == "Random");
         }
 
-        public async Task<Dictionary<int, double>> Run(int trialNum, int port)
+        public async Task<(string, double)[]> Run(int trialNum, int port = 8080)
         {
+            RunTunerBackground();
             await Launch(trialNum, port);
             while (await CheckStatus() == "RUNNING")
                 await Task.Delay(5000);
@@ -36,53 +34,69 @@ namespace Nni
             return ret;
         }
 
+        public void RunTunerBackground()
+        {
+            var tuner = new RandomTuner();
+            var pipe = new NamedPipeServerStream(HardCode.PipePath, PipeDirection.InOut);
+            dispatcher = new Nni.Dispatcher(tuner, pipe);
+            dispatcher.Run();
+        }
+
         public async Task Launch(int trialNum, int port)
         {
             Console.WriteLine("Starting NNI experiment...");
-            var startInfo = new ProcessStartInfo("node")
+            var startInfo = new ProcessStartInfo(HardCode.NodePath)
             {
                 ArgumentList = {
                     "--max-old-space-size=4096",
-                    Path.Join(NniManagerPath, "main.js"),
+                    Path.Join(HardCode.NniManagerPath, "main.js"),
                     "--port", port.ToString(),
                     "--mode", "local",
                     "--start_mode", "new",
                     "--log_level", "debug",
+                    "--dispatcher_pipe", HardCode.PipePath
                 }
             };
-            _proc = Process.Start(startInfo);
+            proc = Process.Start(startInfo);
 
-            _host = $"http://localhost:{port}/api/v1/nni";
+            host = $"http://localhost:{port}/api/v1/nni";
 
             Console.WriteLine("Waiting REST API online...");
             while (await CheckStatus() == null)
                 await Task.Delay(1000);
 
             Console.WriteLine("Setting up NNI manager...");
-            _experimentId = await SetupNniManager(trialNum);
+            experimentId = await SetupNniManager(trialNum);
 
-            Console.WriteLine($"NNI experiment started (ID:{_experimentId})");
+            Console.WriteLine($"NNI experiment started (ID:{experimentId})");
         }
 
         public void Stop()
         {
-            _proc.Kill(true);
+            proc.Kill(true);
         }
 
-        public async Task<Dictionary<int, double>> GetResults()
+        public async Task<(string, double)[]> GetResults()
         {
-            var resp = await _client.GetAsync(_host + "/metric-data/?type=FINAL");
+            var resp = await client.GetAsync(host + "/metric-data/?type=FINAL");
             string content = await resp.Content.ReadAsStringAsync();
-            var metrics = JsonSerializer.Deserialize<List<MetricData>>(content, _jsonOptions);
+            var metrics = JsonSerializer.Deserialize<List<MetricData>>(content, jsonOptions);
 
-            var ret = new Dictionary<int, double>();
+            var metricDict = new Dictionary<int, double>();
             foreach (var metric in metrics)
             {
                 int paramId = Int32.Parse(metric.ParameterId);
                 double result = Double.Parse(JsonSerializer.Deserialize<string>(metric.Data));
-                ret.Add(paramId, result);
+                metricDict.Add(paramId, result);
             }
-            return ret;
+
+            var parameters = dispatcher.GetParameters();
+
+            var ret = new List<(string, double)>();
+            for (int i = 0; i < parameters.Count; i++)
+                if (metricDict.ContainsKey(i))
+                    ret.Add( (parameters[i], metricDict[i]) );
+            return ret.ToArray();
         }
 
         public async Task<string> CheckStatus()
@@ -90,7 +104,7 @@ namespace Nni
             HttpResponseMessage resp;
             try
             {
-                resp = await _client.GetAsync(_host + "/check-status");
+                resp = await client.GetAsync(host + "/check-status");
             }
             catch (Exception)
             {
@@ -100,45 +114,46 @@ namespace Nni
                 return null;
 
             string content = await resp.Content.ReadAsStringAsync();
-            var status = JsonSerializer.Deserialize<NniManagerStatus>(content, _jsonOptions);
+            var status = JsonSerializer.Deserialize<NniManagerStatus>(content, jsonOptions);
             Console.WriteLine("NNI manager status: " + status.Status);
             return status.Status;
         }
 
-        private readonly static HttpClient _client = new HttpClient();
-        private static JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        private readonly static HttpClient client = new HttpClient();
+        private static JsonSerializerOptions jsonOptions = new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
-        private string _trialClassName;
-        private string _tunerName;
-        private string _searchSpace;
+        private string trialClassName;
+        private string tunerName;
+        private string searchSpace;
+        private Dispatcher dispatcher;
 
-        private string _host; 
-        private Process _proc;
-        private string _experimentId;
+        private string host; 
+        private Process proc;
+        private string experimentId;
 
         private async Task<string> SetupNniManager(int trialNum)
         {
             var trialConfig = new TrialConfig
             {
-                Command = TrialCommand + _trialClassName,
-                CodeDir = TrialDir,
+                Command = HardCode.TrialCommand + trialClassName,
+                CodeDir = HardCode.TrialDir,
                 GpuNum = 0
             };
 
-            string trialConfigJson = JsonSerializer.Serialize(trialConfig, _jsonOptions);
+            string trialConfigJson = JsonSerializer.Serialize(trialConfig, jsonOptions);
             string contentStr = "{\"trial_config\":" + trialConfigJson + "}";
             var content = new StringContent(contentStr, Encoding.UTF8, "application/json");
-            var resp = await _client.PutAsync(_host + "/experiment/cluster-metadata", content);
+            var resp = await client.PutAsync(host + "/experiment/cluster-metadata", content);
             resp.EnsureSuccessStatusCode();
 
-            var tunerConfig = new TunerConfig { BuiltinTunerName = _tunerName };
+            var tunerConfig = new TunerConfig { BuiltinTunerName = tunerName };
 
             ClusterConfigKV[] clusterConfigs = {
-                new ClusterConfigKV { Key = "codeDir", Value = TrialDir },
-                new ClusterConfigKV { Key = "command", Value = TrialCommand + _trialClassName }
+                new ClusterConfigKV { Key = "codeDir", Value = HardCode.TrialDir },
+                new ClusterConfigKV { Key = "command", Value = HardCode.TrialCommand + trialClassName }
             };
 
             var expConfig = new ExperimentConfig
@@ -148,16 +163,16 @@ namespace Nni
                 TrialConcurrency = 1,
                 MaxExecDuration = 999999,
                 MaxTrialNum = trialNum,
-                SearchSpace = _searchSpace,
+                SearchSpace = searchSpace,
                 TrainingServicePlatform = "local",
                 Tuner = tunerConfig,
                 VersionCheck = false,
                 ClusterMetaData = clusterConfigs
             };
 
-            string expConfigJson = JsonSerializer.Serialize(expConfig, _jsonOptions);
+            string expConfigJson = JsonSerializer.Serialize(expConfig, jsonOptions);
             content = new StringContent(expConfigJson, Encoding.UTF8, "application/json");
-            resp = await _client.PostAsync(_host + "/experiment", content);
+            resp = await client.PostAsync(host + "/experiment", content);
             resp.EnsureSuccessStatusCode();
 
             string expIdContent = await resp.Content.ReadAsStringAsync();

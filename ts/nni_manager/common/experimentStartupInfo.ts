@@ -17,7 +17,7 @@ class ExperimentStartupInfo {
     private logDir: string = '';
     private logLevel: string = '';
     private readonly: boolean = false;
-    private dispatcherPipe?: string = null;
+    private dispatcherPipe: string | null = null;
     private platform: string = '';
 
     public setStartupInfo(newExperiment: boolean, experimentId: string, basePort: number, platform: string, logDir?: string, logLevel?: string, readonly?: boolean, dispatcherPipe?: string): void {
@@ -43,7 +43,7 @@ class ExperimentStartupInfo {
             this.readonly = readonly;
         }
 
-        if (dispatcherPipe !== undefined and dispatcherPipe.length > 0) {
+        if (dispatcherPipe !== undefined && dispatcherPipe.length > 0) {
             this.dispatcherPipe = dispatcherPipe;
         }
     }
@@ -90,7 +90,7 @@ class ExperimentStartupInfo {
         return this.readonly;
     }
 
-    public getDispatcherPipe(): string? {
+    public getDispatcherPipe(): string | null {
         assert(this.initialized);
         return this.dispatcherPipe;
     }
@@ -126,11 +126,11 @@ function isReadonly(): boolean {
     return component.get<ExperimentStartupInfo>(ExperimentStartupInfo).isReadonly();
 }
 
-function getDispatcherPipe(): string? {
+function getDispatcherPipe(): string | null {
     return component.get<ExperimentStartupInfo>(ExperimentStartupInfo).getDispatcherPipe();
 }
 
 export {
     ExperimentStartupInfo, getBasePort, getExperimentId, isNewExperiment, getPlatform, getExperimentStartupInfo,
-    setExperimentStartupInfo, isReadonly
+    setExperimentStartupInfo, isReadonly, getDispatcherPipe
 };

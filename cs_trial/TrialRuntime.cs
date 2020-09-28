@@ -9,7 +9,7 @@ namespace Nni
 {
     interface ITrial
     {
-        double Run(JsonElement parameters);
+        double Run(string parameter);
     }
 
     class TrialRuntime
@@ -23,13 +23,13 @@ namespace Nni
             ReportResult(trial.Run(GetParameters()));
         }
 
-        public static JsonElement GetParameters()
+        public static string GetParameters()
         {
             Init();
             string paramStr = File.ReadAllText(Path.Join(_sysDir, "parameter.cfg"));
             var param = JsonDocument.Parse(paramStr).RootElement;
             _parameterId = param.GetProperty("parameter_id").GetInt32();
-            return param.GetProperty("parameters");
+            return param.GetProperty("parameters").GetString();
         }
 
         public static void ReportResult(double result)
