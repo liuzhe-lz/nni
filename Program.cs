@@ -11,7 +11,7 @@ class Program
         if (args.Length == 0) {
             // Configure trial class, tuner, and search space to create experiment
             string trialClassName = "NaiveExample.NaiveTrial";
-            string searchSpace = "-0.5,0.5";
+            string searchSpace = "-0.5,0.5";  // naive search space for POV, "min,max"
             string tuner = "Random";
             var exp = new Nni.Experiment(trialClassName, tuner, searchSpace);
 
