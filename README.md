@@ -2,8 +2,8 @@
 
 This repo is a C# console project wrapping a node.js module.
 
-To build the node.js module, run `cd nni_manager && yarn && yarn build`.
-Or if you have problems with node.js toolchain, you can simply extract `nni-manager.7z`, which contains node.js runtime and pre-built NNI manager for Windows.
+To build the node.js module, run `cd nni_manager && yarn --prod && yarn build`.
+Or if you have problems with node.js toolchain, you can simply extract `nni_manager.7z`, which contains node.js runtime and pre-built NNI manager for Windows.
 
 C# part could be built with `dotnet build` and run with `dotnet run`.
 
@@ -36,3 +36,10 @@ Trial class should implement `ITrial` interface, which contains only one method:
 
   + Search space interface.
   + Pass trial class as `Type` or generic type parameter instead of name string.
+
+## Planned Items (Current Sprint) ##
+
+  + Get rid of Python hack (`FIXME` in `TrialRuntime.cs`).
+  + Clean up JSON parsing.
+  + Implement "real" basic tuner.
+  + Test, doc, style

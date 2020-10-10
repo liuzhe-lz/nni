@@ -1,5 +1,5 @@
 namespace Nni {
-    // hard-coded for POV
+    // hard-coded for POC
     class HardCode {
         public static string NodePath = @"C:\<code-dir>\nni_manager\node.exe";
         public static string NniManagerPath = @"C:\<code-dir>\nni_manager\dist";
