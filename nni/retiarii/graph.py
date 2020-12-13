@@ -1,5 +1,13 @@
+# Copyright (c) Microsoft Corporation.
+# Licensed under the MIT license.
+
 """
-Model representation.
+Retiarii model representation.
+
+Retiarii convert PyTorch and TensorFlow models into "graphs" before mutation.
+This file defines classes representing those graphs.
+
+All classes in this file are NOT thread-safe.
 """
 
 import copy
@@ -9,15 +17,14 @@ from collections import defaultdict
 from typing import (Any, Dict, List, Optional, Tuple, Union, overload)
 
 from .operation import Cell, Operation, _IOPseudoOperation
+from .utils import uid
 
 __all__ = ['Model', 'ModelStatus', 'Graph', 'Node', 'Edge', 'IllegalGraphError', 'MetricData']
 
 
 MetricData = Any
 """
-Graph metrics like loss, accuracy, etc.
-
-# Maybe we can assume this is a single float number for first iteration.
+Type hint for graph metrics (loss, accuracy, etc).
 """
 
 
@@ -70,6 +77,8 @@ class Model:
 
     Attributes
     ----------
+    model_id
+        Integral unique ID.
     status
         See `ModelStatus`.
     root_graph
@@ -88,12 +97,10 @@ class Model:
     intermediate_metrics
         Intermediate training metrics. If the model is not trained, it's an empty list.
     """
-    _cur_model_id = 0
 
     def __init__(self, _internal=False):
         assert _internal, '`Model()` is private, use `model.fork()` instead'
-        Model._cur_model_id += 1
-        self.model_id = Model._cur_model_id
+        self.model_id: int = uid('model')
 
         self.status: ModelStatus = ModelStatus.Mutating
 
@@ -105,8 +112,6 @@ class Model:
 
         self.metric: Optional[MetricData] = None
         self.intermediate_metrics: List[MetricData] = []
-
-        self._last_uid: int = 0  # FIXME: this should be global, not model-wise
 
     def __repr__(self):
         return f'Model(model_id={self.model_id}, status={self.status}, graphs={list(self.graphs.keys())}, ' + \
@@ -125,17 +130,13 @@ class Model:
 
         This API is used in mutator base class.
         """
+        assert self.status is not ModelStatus.Mutating
         new_model = Model(_internal=True)
         new_model._root_graph_name = self._root_graph_name
         new_model.graphs = {name: graph._fork_to(new_model) for name, graph in self.graphs.items()}
         new_model.training_config = copy.deepcopy(self.training_config)
         new_model.history = self.history + [self]
-        new_model._last_uid = self._last_uid
         return new_model
-
-    def _uid(self) -> int:
-        self._last_uid += 1
-        return self._last_uid
 
     @staticmethod
     def _load(ir: Any) -> 'Model':
@@ -276,7 +277,7 @@ class Graph:
             op = operation_or_type
         else:
             op = Operation.new(operation_or_type, parameters, name)
-        return Node(self, self.model._uid(), name, op, _internal=True)._register()
+        return Node(self, uid(), name, op, _internal=True)._register()
 
     @overload
     def insert_node_on_edge(self, edge: 'Edge', name: str, operation: Operation) -> 'Node': ...
@@ -288,7 +289,7 @@ class Graph:
             op = operation_or_type
         else:
             op = Operation.new(operation_or_type, parameters, name)
-        new_node = Node(self, self.model._uid(), name, op, _internal=True)._register()
+        new_node = Node(self, uid(), name, op, _internal=True)._register()
         # update edges
         self.add_edge((edge.head, edge.head_slot), (new_node, None))
         self.add_edge((new_node, None), (edge.tail, edge.tail_slot))
@@ -392,7 +393,7 @@ class Graph:
     def _copy(self) -> 'Graph':
         # Copy this graph inside the model.
         # The new graph will have identical topology, but its nodes' name and ID will be different.
-        new_graph = Graph(self.model, self.model._uid(), _internal=True)._register()
+        new_graph = Graph(self.model, uid(), _internal=True)._register()
         new_graph.input_node.operation.io_names = self.input_node.operation.io_names
         new_graph.output_node.operation.io_names = self.output_node.operation.io_names
         new_graph.input_node.update_label(self.input_node.label)
@@ -401,7 +402,7 @@ class Graph:
         id_to_new_node = {}  # old node ID -> new node object
 
         for old_node in self.hidden_nodes:
-            new_node = Node(new_graph, self.model._uid(), None, old_node.operation, _internal=True)._register()
+            new_node = Node(new_graph, uid(), None, old_node.operation, _internal=True)._register()
             new_node.update_label(old_node.label)
             id_to_new_node[old_node.id] = new_node
 
@@ -418,7 +419,7 @@ class Graph:
 
     @staticmethod
     def _load(model: Model, name: str, ir: Any) -> 'Graph':
-        graph = Graph(model, model._uid(), name, _internal=True)
+        graph = Graph(model, uid(), name, _internal=True)
         graph.input_node.operation.io_names = ir.get('inputs')
         graph.output_node.operation.io_names = ir.get('outputs')
         for node_name, node_data in ir['nodes'].items():
@@ -555,7 +556,7 @@ class Node:
             op = Cell(ir['operation']['cell_name'], ir['operation'].get('parameters', {}))
         else:
             op = Operation.new(ir['operation']['type'], ir['operation'].get('parameters', {}))
-        node = Node(graph, graph.model._uid(), name, op)
+        node = Node(graph, uid(), name, op)
         if 'label' in ir:
             node.update_label(ir['label'])
         return node
